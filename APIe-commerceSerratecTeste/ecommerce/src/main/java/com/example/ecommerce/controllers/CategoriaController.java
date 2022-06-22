@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ecommerce.dtos.CategoriaDTO;
@@ -58,6 +59,16 @@ public class CategoriaController {
 		CategoriaListaProdutoDTO categoriaDTO = categoriaService.findCategoriaListaProdutoDTOById(id);
 		if (categoriaDTO == null) {
 			throw new NoSuchElementFoundException("Não existe nenhuma categoria com o ID: " + id + ".");
+		} else {
+			return new ResponseEntity<>(categoriaDTO, HttpStatus.OK);
+		}
+
+	}
+	
+	@GetMapping("/produto/dto/nome/{nome}")	public ResponseEntity<CategoriaListaProdutoDTO> findCategoriaListProdutoDTOByNome(@PathVariable String nome) {
+		CategoriaListaProdutoDTO categoriaDTO = categoriaService.findCategoriaListaProdutoDTOByNome(nome);
+		if (categoriaDTO == null) {
+			throw new NoSuchElementFoundException("Não existe nenhuma categoria com o nome: " + nome + ".");
 		} else {
 			return new ResponseEntity<>(categoriaDTO, HttpStatus.OK);
 		}

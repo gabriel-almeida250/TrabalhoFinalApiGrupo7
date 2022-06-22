@@ -1,6 +1,7 @@
 package com.example.ecommerce.controllers;
 
 import java.util.List;
+import java.util.Map;
 
 import javax.validation.Valid;
 
@@ -8,8 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -34,7 +37,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/categoria")
 @Validated
 @Tag(name = "Categorias", description = "Endpoints")
-
+@CrossOrigin
 public class CategoriaController {
 
 	@Autowired
@@ -91,6 +94,16 @@ public class CategoriaController {
 			return new ResponseEntity<>(categoriaDTO, HttpStatus.OK);
 		}
 	}
+	
+	@GetMapping("/produto/dto/nome/{nome}")	public ResponseEntity<CategoriaListaProdutoDTO> findCategoriaListProdutoDTOByNome(@PathVariable String nome) {
+		CategoriaListaProdutoDTO categoriaDTO = categoriaService.findCategoriaListaProdutoDTOByNome(nome);
+		if (categoriaDTO == null) {
+			throw new NoSuchElementFoundException("Não existe nenhuma categoria com o nome: " + nome + ".");
+		} else {
+			return new ResponseEntity<>(categoriaDTO, HttpStatus.OK);
+		}
+
+	}
 
 	@Operation(summary = "Inserir os dados de categoria", responses = {
 	@ApiResponse(responseCode = "200", description = "Salvo com sucesso", content = {
@@ -115,6 +128,12 @@ public class CategoriaController {
 	@PutMapping("/dto")
 	public ResponseEntity<CategoriaDTO> updateCategoriaDTO(@Valid @RequestBody CategoriaDTO categoriaDTO) {
 		CategoriaDTO novoCategoriaDTO = categoriaService.updateCategoriaDTO(categoriaDTO);
+		return new ResponseEntity<>(novoCategoriaDTO, HttpStatus.OK);
+	}
+	
+	@PatchMapping("/dto/{id}")
+	public ResponseEntity<CategoriaDTO> updateCategoriaPatchDTO(@Valid @PathVariable Integer id, @RequestBody Map<Object, Object> object) {
+		CategoriaDTO novoCategoriaDTO = categoriaService.updateCategoriaPatchDTO(id, object);
 		return new ResponseEntity<>(novoCategoriaDTO, HttpStatus.OK);
 	}
 	

@@ -1,10 +1,15 @@
 package com.example.ecommerce.services;
 
 import java.io.IOException;
-import java.time.LocalDate;
+import java.lang.reflect.Field;
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.util.ReflectionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,6 +18,7 @@ import com.example.ecommerce.dtos.ProdutoDTO;
 import com.example.ecommerce.entities.Categoria;
 import com.example.ecommerce.entities.Produto;
 import com.example.ecommerce.exceptions.InvalidDescriptionException;
+import com.example.ecommerce.exceptions.NoSuchElementFoundException;
 import com.example.ecommerce.repositories.ProdutoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -28,7 +34,19 @@ public class ProdutoService {
 	@Autowired
 	ArquivoService arquivoService;
 
-	public List<Produto> findAllProduto() {
+	public Page<Produto> findAllProdutoPage(Pageable pageable) {
+		
+		return produtoRepository.findAll(pageable);
+	}
+	
+	public List<Produto> findAllProduto(){
+		return produtoRepository.findAll();
+	}
+
+	public List<Produto> listAll(String palavraChave) {
+		if (palavraChave != null) {
+			return produtoRepository.pesquisaIgonereCase(palavraChave);
+		}
 		return produtoRepository.findAll();
 	}
 
@@ -46,6 +64,37 @@ public class ProdutoService {
 		return null;
 	}
 
+	public ProdutoDTO findProdutoDTOByNome(String nome) {
+		Produto produto = produtoRepository.findByNomeProdutoIgnoreCase(nome).isPresent()
+				? produtoRepository.findByNomeProdutoIgnoreCase(nome).get()
+				: null;
+		ProdutoDTO produtoDTO = new ProdutoDTO();
+		if (produto != null) {
+			produtoDTO = converterEntidadeParaDTO(produto);
+			return produtoDTO;
+		}
+		return null;
+	}
+
+	public ProdutoDTO findProdutoDTOByDescricao(String descricao) {
+		Produto produto = produtoRepository.findByDescricaoProdutoIgnoreCase(descricao).isPresent()
+				? produtoRepository.findByDescricaoProdutoIgnoreCase(descricao).get()
+				: null;
+		ProdutoDTO produtoDTO = new ProdutoDTO();
+		if (produto != null) {
+			produtoDTO = converterEntidadeParaDTO(produto);
+			return produtoDTO;
+		}
+		return null;
+	}
+	
+	public List<Produto> listAllContains(String palavraChave) {
+		if (palavraChave != null) {
+			return produtoRepository.findByNomeProdutoContainingIgnoreCase(removerAcentos(palavraChave));
+		}
+		return produtoRepository.findAll();
+	}
+
 
 	public ProdutoDTO saveProdutoDTO(ProdutoDTO produtoDTO) {
 		validarDescricao(produtoDTO.getDescricaoProduto());
@@ -57,6 +106,22 @@ public class ProdutoService {
 	public ProdutoDTO updateProdutoDTO(ProdutoDTO produtoDTO) {
 		Produto produto = converterDTOParaEntidade(produtoDTO);
 		Produto novoProduto = produtoRepository.save(produto);
+		return converterEntidadeParaDTO(novoProduto);
+	}
+	
+	public ProdutoDTO updateProdutoPacthDTO(Integer id,  Map<Object, Object> object) {
+		Produto produto = findProdutoById(id);
+		if (produto == null) {
+			throw new NoSuchElementFoundException("Não existe nenhum cliente com o ID: " + id + ".");
+		}
+		object.forEach((key, value) -> {
+			Field field = ReflectionUtils.findRequiredField(Produto.class, (String)key);
+			field.setAccessible(true);
+			ReflectionUtils.setField(field, produto, value);
+		});
+		
+		Produto novoProduto = produtoRepository.save(produto);
+		
 		return converterEntidadeParaDTO(novoProduto);
 	}
 
@@ -83,7 +148,7 @@ public class ProdutoService {
 
 		return converterEntidadeParaDTO(produtoAtualizado);
 	}
-	
+
 	public ProdutoDTO updateProdutoComFotoDTO(String produtoStringDTO, MultipartFile file) throws Exception {
 		ProdutoDTO produtoConvertidoDTO = new ProdutoDTO();
 		try {
@@ -115,7 +180,6 @@ public class ProdutoService {
 		ProdutoDTO produtoDTO = new ProdutoDTO();
 		produtoDTO.setIdProduto(produto.getIdProduto());
 		produtoDTO.setDescricaoProduto(produto.getDescricaoProduto());
-		produtoDTO.setDataCadastro(LocalDate.now());
 		produtoDTO.setImagemProduto(produto.getImagemProduto());
 		produtoDTO.setNomeProduto(produto.getNomeProduto());
 		produtoDTO.setValorUnitario(produto.getValorUnitario());
@@ -130,7 +194,6 @@ public class ProdutoService {
 		Produto produto = new Produto();
 		produto.setIdProduto(produtoDTO.getIdProduto());
 		produto.setDescricaoProduto(produtoDTO.getDescricaoProduto());
-		produto.setDataCadastro(LocalDate.now());
 		produto.setImagemProduto(produtoDTO.getImagemProduto());
 		produto.setNomeProduto(produtoDTO.getNomeProduto());
 		produto.setValorUnitario(produtoDTO.getValorUnitario());
@@ -142,9 +205,15 @@ public class ProdutoService {
 	}
 
 	public void validarDescricao(String descricaoProduto) {
-		var produto = produtoRepository.findByDescricaoProduto(descricaoProduto);
+		var produto = produtoRepository.findByDescricaoProdutoIgnoreCase(descricaoProduto);
 		if (produto.isPresent()) {
 			throw new InvalidDescriptionException("Existe um produto com essa descrição.");
 		}
 	}
+	
+	public static String removerAcentos(String str) {
+	    return Normalizer.normalize(str, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+	}
+
+	
 }

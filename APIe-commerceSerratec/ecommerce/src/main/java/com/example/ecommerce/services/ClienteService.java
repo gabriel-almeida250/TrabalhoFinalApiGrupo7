@@ -1,8 +1,11 @@
 package com.example.ecommerce.services;
 
+import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.util.ReflectionUtils;
 import org.springframework.stereotype.Service;
 
 import com.example.ecommerce.dtos.ClienteDTO;
@@ -11,6 +14,7 @@ import com.example.ecommerce.entities.Cliente;
 import com.example.ecommerce.entities.Endereco;
 import com.example.ecommerce.exceptions.InvalidCpfException;
 import com.example.ecommerce.exceptions.InvalidEmailException;
+import com.example.ecommerce.exceptions.NoSuchElementFoundException;
 import com.example.ecommerce.repositories.ClienteRepository;
 
 @Service
@@ -47,6 +51,25 @@ public class ClienteService {
 	public ClienteDTO saveClienteDTO(ClienteDTO clienteDTO) {
 		validarCPF(clienteDTO.getCpfCliente());
 		validarEmail(clienteDTO.getEmailCliente());
+		Endereco endereco = new Endereco();
+		endereco.setCep(clienteDTO.getEnderecoDTO().getCep());
+		endereco.setComplemento(clienteDTO.getEnderecoDTO().getComplemento());
+		endereco.setNumero(clienteDTO.getEnderecoDTO().getNumero());
+		endereco.setBairro(clienteDTO.getEnderecoDTO().getBairro());
+		endereco.setCidade(clienteDTO.getEnderecoDTO().getCidade());
+		endereco.setRua(clienteDTO.getEnderecoDTO().getRua());
+		endereco.setUf(clienteDTO.getEnderecoDTO().getUf());
+		Endereco saveEndereco = enderecoService.saveEndereco(endereco);
+		clienteDTO.setEnderecoDTO(saveEndereco.converterEntidadeParaDTO());
+		Cliente cliente = converterDTOParaEntidade(clienteDTO);
+		
+		Cliente novoCliente = clienteRepository.save(cliente);
+		
+		return converterEntidadeParaDTO(novoCliente);
+	}
+
+	public ClienteDTO updateClienteDTO(ClienteDTO clienteDTO) {
+		validarEmail(clienteDTO.getEmailCliente());
 		Endereco endereco = enderecoService.consultarCep(clienteDTO.getEnderecoDTO().getCep());
 		endereco.setComplemento(clienteDTO.getEnderecoDTO().getComplemento());
 		endereco.setNumero(clienteDTO.getEnderecoDTO().getNumero());
@@ -58,16 +81,17 @@ public class ClienteService {
 		
 		return converterEntidadeParaDTO(novoCliente);
 	}
-
-	public ClienteDTO updateClienteDTO(ClienteDTO clienteDTO) {
-		validarCPF(clienteDTO.getCpfCliente());
-		validarEmail(clienteDTO.getEmailCliente());
-		Endereco endereco = enderecoService.consultarCep(clienteDTO.getEnderecoDTO().getCep());
-		endereco.setComplemento(clienteDTO.getEnderecoDTO().getComplemento());
-		endereco.setNumero(clienteDTO.getEnderecoDTO().getNumero());
-		Endereco saveEndereco = enderecoService.saveEndereco(endereco);
-		clienteDTO.setEnderecoDTO(saveEndereco.converterEntidadeParaDTO());
-		Cliente cliente = converterDTOParaEntidade(clienteDTO);
+	
+	public ClienteDTO updateClientePatchDTO(Integer id,  Map<Object, Object> object) {
+		Cliente cliente = findClienteById(id);
+		if (cliente == null) {
+			throw new NoSuchElementFoundException("Não existe nenhum cliente com o ID: " + id + ".");
+		}
+		object.forEach((key, value) -> {
+			Field field = ReflectionUtils.findRequiredField(Cliente.class, (String)key);
+			field.setAccessible(true);
+			ReflectionUtils.setField(field, cliente, value);
+		});
 		
 		Cliente novoCliente = clienteRepository.save(cliente);
 		
@@ -86,6 +110,8 @@ public class ClienteService {
 		clienteDTO.setNomeCliente(cliente.getNomeCliente());
 		clienteDTO.setTelefoneCliente(cliente.getTelefoneCliente());
 		clienteDTO.setDataNascimento(cliente.getDataNascimento());
+		clienteDTO.setAdmin(cliente.getAdmin() == null ? Boolean.FALSE : Boolean.TRUE);
+		clienteDTO.setSenha(cliente.getSenha());
 		EnderecoDTO enderecoDTO = enderecoService.findEnderecoDTOById(cliente.getEndereco().getIdEndereco());
 		clienteDTO.setEnderecoDTO(enderecoDTO);
 
@@ -100,6 +126,8 @@ public class ClienteService {
 		cliente.setNomeCliente(clienteDTO.getNomeCliente());
 		cliente.setTelefoneCliente(clienteDTO.getTelefoneCliente());
 		cliente.setDataNascimento(clienteDTO.getDataNascimento());
+		cliente.setAdmin(clienteDTO.getAdmin());
+		cliente.setSenha(clienteDTO.getSenha());
 		Endereco enderecoNovo= new Endereco();
 		enderecoNovo.converterEntidadeParaDTO();
 		cliente.setEndereco(clienteDTO.getEnderecoDTO().converterDTOParaEntidade());
